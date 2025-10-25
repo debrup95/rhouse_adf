@@ -1,0 +1,28 @@
+{
+	"name": "HttpServer_Func_App_rehouzd",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"code": {
+				"type": "string",
+				"defaultValue": "uuzR5JGEqKlI-YrZoisaqvYr7XeIoDeTakCvFVgz3XHkAzFusOjw6Q=="
+			},
+			"process_key": {
+				"type": "string"
+			},
+			"batch_num": {
+				"type": "string"
+			},
+			"last_loaded_ts": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "HttpServer",
+		"typeProperties": {
+			"url": "https://rehouzdfunctions19.azurewebsites.net/api/rehouzd_function",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}

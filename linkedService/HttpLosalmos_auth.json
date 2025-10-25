@@ -1,0 +1,12 @@
+{
+	"name": "HttpLosalmos_auth",
+	"properties": {
+		"annotations": [],
+		"type": "HttpServer",
+		"typeProperties": {
+			"url": "https://csr.lanl.gov/data-fence/1750114758/N6ZxQkQ5wWcbJagx6A2cDPJyzL0=/cyber1/",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}

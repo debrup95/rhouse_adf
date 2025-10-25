@@ -1,0 +1,1073 @@
+{
+	"name": "pl_brnz_prps_prop_sales_dtl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup_BRNZ_PRPS_PROP_SALES_DTL",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set variable2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzurePostgreSqlSource",
+						"query": "SELECT COALESCE(max(brnz_prps_prop_sales_dtl_sk),0) as mx_brnz_prcl_prop_sales_dtl_sk , COALESCE(max(etl_nr),0) as mx_etl_nr FROM bronze.brnz_prps_prop_sales_dtl;",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "bronze_prcl_prop_sales_dtl_DS",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "DF_brnz_prps_prop_sales_dtl_sk",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "Lookup_BRNZ_PRPS_PROP_SALES_DTL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "df_brnz_prps_prop_sales_dtl",
+						"type": "DataFlowReference",
+						"parameters": {
+							"etl_nr": {
+								"value": "@activity('Lookup_BRNZ_PRPS_PROP_SALES_DTL').output.firstRow.mx_etl_nr",
+								"type": "Expression"
+							},
+							"brnz_prps_prop_sales_dtl_sk": {
+								"value": "@activity('Lookup_BRNZ_PRPS_PROP_SALES_DTL').output.firstRow.mx_brnz_prcl_prop_sales_dtl_sk",
+								"type": "Expression"
+							},
+							"file_name": {
+								"value": "'@{variables('fl_name')}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"sink1": {
+								"file_name": {
+									"value": "@variables('fl_name')",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Get Metadata1",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "ADLSDataSet_rehouzed",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "fl_name",
+					"value": {
+						"value": "@concat(activity('Get Metadata1').output.childItems[0].name,'_intermediate_',utcNow())",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable2",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "cmp_fl_name",
+					"value": {
+						"value": "@concat(activity('Get Metadata1').output.childItems[0].name,'_archive_',utcNow())",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Lookup for non empty records",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata for parquet",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ParquetSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "ParquetReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "bronze_prps_prop_sales_INTM_DS_folder",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": {
+								"value": "@variables('fl_name')",
+								"type": "Expression"
+							},
+							"file_name": {
+								"value": "@activity('Get Metadata for parquet').output.childItems[1].name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Get Metadata for parquet",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "DF_brnz_prps_prop_sales_dtl_sk",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "bronze_prps_prop_sales_INTM_DS",
+						"type": "DatasetReference",
+						"parameters": {
+							"file_name": {
+								"value": "@variables('fl_name')",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Lookup for non empty records",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(length(string(activity('Lookup for non empty records').output.firstRow)), 0)\n",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Copy_to_archive_copy1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"maxConcurrentConnections": 1,
+										"recursive": true,
+										"wildcardFileName": "*.csv",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "ADLSDataSet_rehouzed",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ADLSDataset_rehouzd_archive",
+									"type": "DatasetReference",
+									"parameters": {
+										"folder_name": {
+											"value": "@variables('cmp_fl_name')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Delete_source_copy1",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "Copy_to_archive_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "ADLSDataSet_rehouzed",
+									"type": "DatasetReference"
+								},
+								"logStorageSettings": {
+									"linkedServiceName": {
+										"referenceName": "delete_ls",
+										"type": "LinkedServiceReference"
+									},
+									"path": "delete"
+								},
+								"enableLogging": true,
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.csv",
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "copy_data_to_prps_tbl",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"wildcardFolderPath": {
+											"value": "@concat(variables('fl_name'),'/')",
+											"type": "Expression"
+										},
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "AzurePostgreSQLSink",
+									"writeBatchSize": 1000000,
+									"writeBatchTimeout": "00:30:00",
+									"writeMethod": "CopyCommand"
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"mappings": [
+										{
+											"source": {
+												"name": "brnz_prps_prop_sales_dtl_sk",
+												"type": "Int64",
+												"physicalType": "INT64"
+											},
+											"sink": {
+												"name": "brnz_prps_prop_sales_dtl_sk",
+												"type": "Int64",
+												"physicalType": "bigint"
+											}
+										},
+										{
+											"source": {
+												"name": "load_date_dt",
+												"type": "DateTime",
+												"physicalType": "DATE"
+											},
+											"sink": {
+												"name": "load_date_dt",
+												"type": "DateTime",
+												"physicalType": "date"
+											}
+										},
+										{
+											"source": {
+												"name": "etl_nr",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "etl_nr",
+												"type": "Int64",
+												"physicalType": "bigint"
+											}
+										},
+										{
+											"source": {
+												"name": "etl_recorded_gmts",
+												"type": "DateTime",
+												"physicalType": "INT96"
+											},
+											"sink": {
+												"name": "etl_recorded_gmts",
+												"type": "DateTime",
+												"physicalType": "timestamp without time zone"
+											}
+										},
+										{
+											"source": {
+												"name": "record_inserted_ts",
+												"type": "DateTime",
+												"physicalType": "INT96"
+											},
+											"sink": {
+												"name": "record_inserted_ts",
+												"type": "DateTime",
+												"physicalType": "timestamp without time zone"
+											}
+										},
+										{
+											"source": {
+												"name": "investor_company_nm_txt",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "investor_company_nm_txt",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_last_sale_dt",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_last_sale_dt",
+												"type": "DateTime",
+												"physicalType": "date"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_last_sale_amt",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "prop_last_sale_amt",
+												"type": "Double",
+												"physicalType": "double precision"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_attr_br_cnt",
+												"type": "Int16",
+												"physicalType": "INT_16"
+											},
+											"sink": {
+												"name": "prop_attr_br_cnt",
+												"type": "Int32",
+												"physicalType": "integer"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_attr_bth_cnt",
+												"type": "Double",
+												"physicalType": "DOUBLE"
+											},
+											"sink": {
+												"name": "prop_attr_bth_cnt",
+												"type": "Int32",
+												"physicalType": "integer"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_attr_sqft_nr",
+												"type": "Int16",
+												"physicalType": "INT_16"
+											},
+											"sink": {
+												"name": "prop_attr_sqft_nr",
+												"type": "Int32",
+												"physicalType": "integer"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_yr_blt_nr",
+												"type": "Int16",
+												"physicalType": "INT_16"
+											},
+											"sink": {
+												"name": "prop_yr_blt_nr",
+												"type": "Int32",
+												"physicalType": "integer"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_address_line_txt",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_address_line_txt",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_city_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_city_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_state_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_state_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_cnty_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_cnty_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_zip_cd",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "prop_zip_cd",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_tlt_cnd_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_tlt_cnd_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_int_cnd_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_int_cnd_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_ext_cnd_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_ext_cnd_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_bth_cnd_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_bth_cnd_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_kth_cnd_nm",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "prop_kth_cnd_nm",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_list_price_amt",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "prop_list_price_amt",
+												"type": "Double",
+												"physicalType": "double precision"
+											}
+										},
+										{
+											"source": {
+												"name": "mailing_zip",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "mailing_zip",
+												"physicalType": "boolean"
+											}
+										},
+										{
+											"source": {
+												"name": "mailing_address",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "mailing_address",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "mailing_unit",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "mailing_unit",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "mailing_city",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "mailing_city",
+												"type": "String",
+												"physicalType": "text"
+											}
+										},
+										{
+											"source": {
+												"name": "mailing_state"
+											},
+											"sink": {
+												"name": "mailing_state"
+											}
+										},
+										{
+											"source": {
+												"name": "prop_lndr_nm"
+											},
+											"sink": {
+												"name": "prop_lndr_nm"
+											}
+										}
+									],
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "bronze_prps_prop_sales_INTM_DS",
+									"type": "DatasetReference",
+									"parameters": {
+										"file_name": {
+											"value": "@variables('fl_name')",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "bronze_prps_prop_sales_dtl_DS",
+									"type": "DatasetReference"
+								}
+							]
+						},
+						{
+							"name": "Copy_to_archive",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "copy_data_to_prps_tbl",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"maxConcurrentConnections": 1,
+										"recursive": true,
+										"wildcardFileName": "*.csv",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "ADLSDataSet_rehouzed",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ADLSDataset_rehouzd_archive",
+									"type": "DatasetReference",
+									"parameters": {
+										"folder_name": {
+											"value": "@variables('cmp_fl_name')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Delete_source",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "Copy_to_archive",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "ADLSDataSet_rehouzed",
+									"type": "DatasetReference"
+								},
+								"logStorageSettings": {
+									"linkedServiceName": {
+										"referenceName": "delete_ls",
+										"type": "LinkedServiceReference"
+									},
+									"path": "delete"
+								},
+								"enableLogging": true,
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.csv",
+									"enablePartitionDiscovery": false
+								}
+							}
+						},
+						{
+							"name": "Lookup_rec_lookup",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "Delete_source",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzurePostgreSqlSource",
+									"query": {
+										"value": "select max(tbl_id) as mx_id, null AS dtl_sk, null AS etl_recorded_gmts\nfrom lookups.adf_load_tracker\nunion\nSELECT \n\tnull as mx_id,\n    COALESCE(MAX(etl_nr), 0) AS dtl_sk, \n    COALESCE(MAX(etl_recorded_gmts), TIMESTAMP '1970-01-01 00:00:00') AS etl_recorded_gmts\nFROM bronze.brnz_prps_prop_sales_dtl;",
+										"type": "Expression"
+									},
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "lookup_adf_load_tracker",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Set variable_mx_id_copy1",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Lookup_rec_lookup",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "mx_id",
+								"value": {
+									"value": "@activity('Lookup_rec_lookup').output.value[0].mx_id",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable dtl sk",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Set variable_mx_id_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "dtl_sk",
+								"value": {
+									"value": "@activity('Lookup_rec_lookup').output.value[1].dtl_sk",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable etl_recorded_gmts",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Set variable dtl sk",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "etl_recorded_gmts",
+								"value": {
+									"value": "@activity('Lookup_rec_lookup').output.value[1].etl_recorded_gmts",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "update bronze lookup",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Set variable etl_recorded_gmts",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"url": {
+									"value": "@concat(\n    'https://rehouzdfunctions19.azurewebsites.net/api/rehouzd_function?',\n    'process_key=', pipeline().parameters.process_key,\n    '&etl_recorded_gmts=', variables('etl_recorded_gmts'),\n    '&etl_nr=', uriComponent(variables('dtl_sk')),\n    '&code=uuzR5JGEqKlI-YrZoisaqvYr7XeIoDeTakCvFVgz3XHkAzFusOjw6Q=='\n)\n",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"process_key": {
+				"type": "string",
+				"defaultValue": "bnz_prps_upd"
+			}
+		},
+		"variables": {
+			"etl_nr": {
+				"type": "Integer"
+			},
+			"brnz_prps_prop_sales_dtl_sk": {
+				"type": "Integer"
+			},
+			"fl_name": {
+				"type": "String"
+			},
+			"cmp_fl_name": {
+				"type": "String"
+			},
+			"mx_id": {
+				"type": "Integer"
+			},
+			"dtl_sk": {
+				"type": "Integer"
+			},
+			"etl_recorded_gmts": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-11T08:04:12Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

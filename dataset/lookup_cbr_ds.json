@@ -1,0 +1,32 @@
+{
+	"name": "lookup_cbr_ds",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ADLSGen2LinkedService_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "lookup_cybr_dta.csv",
+				"fileSystem": "lookup"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "id",
+				"type": "String"
+			},
+			{
+				"name": "url",
+				"type": "String"
+			}
+		]
+	}
+}

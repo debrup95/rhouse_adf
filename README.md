@@ -1,131 +1,37 @@
-# Rehouzd MVP
+# Getting Started with Create React App
 
-Rehouzd is a property estimation and buyer matching application that helps users find accurate property values and connects them with potential buyers.
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## Table of Contents
+## Available Scripts
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Getting Started](#getting-started)
-- [Local Development](#local-development)
-- [Deployment](#deployment)
-- [Documentation](#documentation)
-- [Technology Stack](#technology-stack)
-- [License](#license)
+### In the project directory, you can run:
+`npm run start-all`
+or
+`npm run dev` inside backend-server
 
-## Overview
+### Before this Install Required libraries outside and inside the modules so that your application can run
+`npm install`
 
-The Rehouzd MVP consists of:
+### Open [http://localhost:5004] to view it in the browser.
 
-- **Frontend UI**: A React-based web application for user interaction
-- **Backend API**: A Node.js/Express API server for business logic
-- **Database**: PostgreSQL for data storage
 
-## Architecture
+### `npm run build`
 
-The application follows a microservices architecture with Docker containers:
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-- **Frontend**: React with TypeScript
-- **Backend**: Node.js with Express and TypeScript
-- **Database**: PostgreSQL
-- **Infrastructure**: Azure App Service, Azure Container Registry, Azure PostgreSQL Flexible Server
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
-## Getting Started
+### `npx api install "@labs-v2/v0.28.0#37floej3hm8ayfwxz"`
+Go into backend-server and run the above command so that it can be installed and can be used in backend.
 
-### Prerequisites
+## DB Creation Script
+`backend-server/src/rehouzd/estimator/config/init.sql` 
+in the above file we can db creation or alter script
 
-- [Node.js](https://nodejs.org/) v16 or later
-- [Docker](https://www.docker.com/get-started) and Docker Compose
-- [Git](https://git-scm.com/)
-
-### Quick Start
-
-1. Clone the repository
-```bash
-git clone https://github.com/your-org/Rehouzd-MVP.git
-cd Rehouzd-MVP
-```
-
-2. Start with Docker Compose
-```bash
-docker-compose up
-```
-
-This will start all services:
-- Frontend: http://localhost:3001
-- Backend: http://localhost:5004
-- Database: PostgreSQL running on port 5432
-
-## Local Development
-
-For detailed instructions on local development, see [LOCAL-DEVELOPMENT.md](docs/LOCAL-DEVELOPMENT.md)
-
-### Basic Commands
-
-```bash
-# Start all services
-docker-compose up
-
-# Rebuild and start
-docker-compose up --build
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f [service-name]
-```
-
-## Deployment
-
-Rehouzd can be deployed to Azure using GitHub Actions and Bicep templates.
-
-For detailed deployment instructions, see [DEPLOYMENT.md](docs/DEPLOYMENT.md)
-
-### CI/CD Pipeline
-
-The application uses GitHub Actions for continuous integration and deployment:
-
-1. Build and test
-2. Build Docker images
-3. Push to Azure Container Registry
-4. Deploy to Azure App Service
-5. Setup staging and production environments
-
-## Documentation
-
-- [Local Development Guide](docs/LOCAL-DEVELOPMENT.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [API Documentation](docs/API.md) (To be added)
-- [Frontend Documentation](docs/FRONTEND.md) (To be added)
-
-## Technology Stack
-
-### Frontend
-- React
-- TypeScript
-- Chakra UI
-- Redux (with Redux Toolkit)
-- React Router
-
-### Backend
-- Node.js
-- Express
-- TypeScript
-- PostgreSQL
-- Passport.js (Authentication)
-
-### DevOps
-- Docker
-- GitHub Actions
-- Azure (App Service, Container Registry, PostgreSQL, Key Vault)
-- Bicep (Infrastructure as Code)
-
-## License
-
-[MIT License](LICENSE)
-
----
-
-For questions or support, please contact the team at [email protected]
+### Things Developer Should Follow For Backend
+1. Create Models for according to table structure
+2. Create Services for that model to used in rest apis
+3. Common Things should go into utils folder
 

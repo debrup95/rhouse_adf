@@ -1,167 +1,101 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalHeader,
+    ModalCloseButton,
+    ModalBody,
+    ModalFooter,
     VStack,
     HStack,
     Button,
+    useColorModeValue,
     Flex,
     Icon,
-    Text,
-    Box,
-    Badge,
-    Alert,
-    AlertIcon,
 } from '@chakra-ui/react';
 import { FaGoogle } from 'react-icons/fa';
 import LoginForm from './components/LoginForm';
 import SignUpForm from './components/SignUpForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
-import CommonModal from '../components/CommonModal';
 
 interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
     onLogin: (email: string, password: string, rememberMe: boolean) => Promise<void>;
-    onSignUp: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
+    onSignUp: (email: string, password: string, confirm: string) => Promise<void>;
     onGoogleLogin: () => void;
-    showForgotPassword: boolean;
-    setShowForgotPassword: (show: boolean) => void;
-    onForgotPasswordSubmit: () => void;
-    showSignUp: boolean;
-    setShowSignUp: (isSignUp: boolean) => void;
-    planInfo?: string; // Optional plan information to display
-    signupSuccess?: boolean; // Flag to show success message after signup
-    successEmail?: string; // Email to prefill after successful signup
+    isForgotPassword: boolean;
+    onForgotPassword: () => void;
+    onBackToLogin: () => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ 
-    isOpen, 
-    onClose, 
-    onLogin, 
-    onSignUp, 
-    onGoogleLogin, 
-    showForgotPassword, 
-    setShowForgotPassword, 
-    onForgotPasswordSubmit, 
-    showSignUp, 
-    setShowSignUp,
-    planInfo,
-    signupSuccess = false,
-    successEmail = ''
-}) => {
-    const handleClose = () => {
-        onClose();
-        setShowForgotPassword(false);
-        setShowSignUp(false);
-    };
-    
-    // Handle errors silently
-    const handleError = (message: string) => {
-        // Silently handle errors
-    };
-    
-    const footer = (
-        <VStack spacing={4} width="100%">
-            <HStack spacing={4} mb={4} w="100%" justifyContent="center">
-                {!showForgotPassword && !showSignUp && (
-                    <>
-                        <Button colorScheme="brand" type="submit" w="100%" onClick={() => {
-                            const form = document.querySelector('#login-form') as HTMLFormElement;
-                            form?.requestSubmit();
-                        }}>
-                            Login
-                        </Button>
-                        <Button colorScheme="background.secondary" variant="ghost" onClick={() => setShowSignUp(true)} w="100%">
-                            Sign up
-                        </Button>
-                    </>
-                )}
-                {!showForgotPassword && showSignUp && (
-                    <>
-                        <Button colorScheme="brand" type="submit" w="100%" onClick={() => {
-                            const form = document.querySelector('#signup-form') as HTMLFormElement;
-                            form?.requestSubmit();
-                        }}>
-                            Sign up
-                        </Button>
-                        <Button colorScheme="background.secondary" variant="ghost" onClick={() => setShowSignUp(false)} w="100%">
-                            Back to Login
-                        </Button>
-                    </>
-                )}
-            </HStack>
-            {/* Google Login Button */}
-            {!showForgotPassword && !showSignUp && (
-                <Button
-                    leftIcon={<Icon as={FaGoogle as React.ElementType} />}
-                    colorScheme="blue"
-                    variant="outline"
-                    w="100%"
-                    onClick={onGoogleLogin}
-                    mt={2}
-                >
-                    Sign in with Google
-                </Button>
-            )}
-            {!showForgotPassword && showSignUp && (
-                <Button
-                    leftIcon={<Icon as={FaGoogle as React.ElementType} />}
-                    colorScheme="blue"
-                    variant="outline"
-                    w="100%"
-                    onClick={onGoogleLogin}
-                    mt={2}
-                >
-                    Sign up with Google
-                </Button>
-            )}
-        </VStack>
-    );
-    
-    const getTitle = () => {
-        if (showForgotPassword) return 'Reset Your Password';
-        if (showSignUp) {
-            return `Create your account`;
-        }
-        return `Sign in to your account`;
-    };
-    
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignUp, onGoogleLogin, isForgotPassword, onForgotPassword, onBackToLogin }) => {
+    const [isSignUp, setIsSignUp] = useState(false);
+    const boxBg = useColorModeValue('white', 'gray.700');
+
     return (
-        <CommonModal 
-            isOpen={isOpen} 
-            onClose={handleClose}
-            title={getTitle()}
-            footer={footer}
-        >
-            {planInfo && (
-                <Box mb={4} p={1} bg="green.50" borderRadius="md" borderWidth="1px" borderColor="green.200" width="fit-content" mx="auto">
-                    <Text color="green.800" fontWeight="bold" fontSize="sm" fontFamily="body" align="center">
-                        {planInfo}
-                    </Text>
-                </Box>
-            )}
-            
-            {/* Show signup success message */}
-            {signupSuccess && !showSignUp && !showForgotPassword && (
-                <Alert status="success" borderRadius="md" mb={4}>
-                    <AlertIcon />
-                    Account created successfully! You can now login with your credentials.
-                </Alert>
-            )}
-            
-            {showForgotPassword ? (
-                <ForgotPasswordForm onClose={onClose} onBackToLogin={() => setShowForgotPassword(false)} onSubmit={onForgotPasswordSubmit} />
-            ) : showSignUp ? (
-                <SignUpForm onSignUp={onSignUp} onError={handleError} onBackToLogin={() => setShowSignUp(false)} />
-            ) : (
-                <LoginForm 
-                    onLogin={onLogin} 
-                    onError={handleError} 
-                    onSignUp={() => setShowSignUp(true)} 
-                    onForgotPassword={() => { setShowForgotPassword(true); }}
-                    defaultEmail={signupSuccess ? successEmail : ''}
-                />
-            )}
-        </CommonModal>
+        <Modal isOpen={isOpen} onClose={() => { onClose(); onBackToLogin(); setIsSignUp(false); }} isCentered>
+            <ModalOverlay />
+            <ModalContent p={4} bg={boxBg}>
+                <ModalHeader textAlign="center">
+                    {isSignUp ? 'Create your account' : isForgotPassword ? 'Reset Your Password' : 'Sign in to your account'}
+                </ModalHeader>
+                <ModalCloseButton onClick={() => { onClose(); onBackToLogin(); setIsSignUp(false); }} />
+                <ModalBody>
+                    {isForgotPassword ? (
+                        <ForgotPasswordForm onClose={onClose} onBackToLogin={onBackToLogin} />
+                    ) : isSignUp ? (
+                        <SignUpForm onSignUp={onSignUp} onError={(message) => console.error(message)} onBackToLogin={() => setIsSignUp(false)} />
+                    ) : (
+                        <LoginForm onLogin={onLogin} onError={(message) => console.error(message)} onSignUp={() => setIsSignUp(true)} onForgotPassword={() => { onForgotPassword(); }} />
+                    )}
+                </ModalBody>
+                <ModalFooter flexDir="column" pt={4}>
+                    <HStack spacing={4} mb={4} w="100%" justifyContent="center">
+                        {!isForgotPassword && !isSignUp && (
+                            <>
+                                <Button colorScheme="blue" type="submit" w="100%" onClick={() => {
+                                    const form = document.querySelector('#login-form') as HTMLFormElement;
+                                    form?.requestSubmit();
+                                }}>
+                                    Sign in
+                                </Button>
+                                <Button colorScheme="grey" variant="ghost" onClick={() => setIsSignUp(true)} w="100%">
+                                    Sign up
+                                </Button>
+                            </>
+                        )}
+                        {!isForgotPassword && isSignUp && (
+                            <>
+                                <Button colorScheme="blue" type="submit" w="100%" onClick={() => {
+                                    const form = document.querySelector('#signup-form') as HTMLFormElement;
+                                    form?.requestSubmit();
+                                }}>
+                                    Sign up
+                                </Button>
+                                <Button variant="ghost" onClick={() => setIsSignUp(false)} w="100%">
+                                    Back to Login
+                                </Button>
+                            </>
+                        )}
+                    </HStack>
+                    {/* Google Login Button */}
+                    {!isForgotPassword && (
+                        <Button
+                            leftIcon={<Icon as={FaGoogle as React.ElementType} />}
+                            colorScheme="blue" // You might want to adjust the color scheme
+                            variant="outline"
+                            w="100%"
+                            onClick={onGoogleLogin}
+                            mt={2}
+                        >
+                            Sign in with Google
+                        </Button>
+                    )}
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
     );
 };
 

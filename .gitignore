@@ -10,7 +10,6 @@
 
 # production
 /build
-build/
 
 # misc
 .DS_Store
@@ -26,5 +25,3 @@ yarn-error.log*
 
 #IDEA
 .idea/
-.vscode/
-.claude/

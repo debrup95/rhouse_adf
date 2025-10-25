@@ -1,0 +1,138 @@
+{
+	"name": "bronze_prps_prop_sales_INTM_DS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ADLSGen2LinkedService_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"file_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().file_name",
+					"type": "Expression"
+				},
+				"fileSystem": "intermediate"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": [
+			{
+				"name": "brnz_prps_prop_sales_dtl_sk",
+				"type": "INT64"
+			},
+			{
+				"name": "load_date_dt",
+				"type": "DATE"
+			},
+			{
+				"name": "etl_nr",
+				"type": "INT32"
+			},
+			{
+				"name": "etl_recorded_gmts",
+				"type": "INT96"
+			},
+			{
+				"name": "record_inserted_ts",
+				"type": "INT96"
+			},
+			{
+				"name": "investor_company_nm_txt",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_last_sale_dt",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_last_sale_amt",
+				"type": "INT32"
+			},
+			{
+				"name": "prop_attr_br_cnt",
+				"type": "INT_16"
+			},
+			{
+				"name": "prop_attr_bth_cnt",
+				"type": "DOUBLE"
+			},
+			{
+				"name": "prop_attr_sqft_nr",
+				"type": "INT_16"
+			},
+			{
+				"name": "prop_yr_blt_nr",
+				"type": "INT_16"
+			},
+			{
+				"name": "prop_address_line_txt",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_city_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_state_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_cnty_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_zip_cd",
+				"type": "INT32"
+			},
+			{
+				"name": "prop_tlt_cnd_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_int_cnd_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_ext_cnd_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_bth_cnd_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_kth_cnd_nm",
+				"type": "UTF8"
+			},
+			{
+				"name": "prop_list_price_amt",
+				"type": "INT32"
+			},
+			{
+				"name": "mailing_address",
+				"type": "UTF8"
+			},
+			{
+				"name": "mailing_unit",
+				"type": "UTF8"
+			},
+			{
+				"name": "mailing_city",
+				"type": "UTF8"
+			},
+			{
+				"name": "mailing_zip",
+				"type": "UTF8"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

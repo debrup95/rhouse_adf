@@ -1,0 +1,35 @@
+{
+	"name": "db_setup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup1",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzurePostgreSqlSource",
+						"query": "INSERT INTO lookups.adf_load_tracker (tbl_id, tbl_nm ,last_loaded_ts ) \nVALUES (1,'pl_brnz_prps_prop_sales_dtl', current_timestamp());\nselect true;",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "lookup_adf_load_tracker",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-03-19T05:56:50Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

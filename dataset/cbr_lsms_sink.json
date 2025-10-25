@@ -1,0 +1,26 @@
+{
+	"name": "cbr_lsms_sink",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ADLSGen2LinkedService_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"folder_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().folder_name",
+					"type": "Expression"
+				},
+				"fileSystem": "losalmos"
+			}
+		}
+	}
+}

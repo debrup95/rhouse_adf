@@ -1,6 +1,23 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Define interfaces for the different pieces of data you expect
+interface MarketData {
+    parcl_id: number;
+    country: string;
+    geoid?: string | null;
+    state_fips_code: string;
+    name: string;
+    state_abbreviation: string;
+    region: string;
+    location_type: string;
+    total_population: number;
+    median_income: number;
+    parcl_exchange_market: number;
+    pricefeed_market: number;
+    case_shiller_10_market: number;
+    case_shiller_20_market: number;
+}
+
 interface AddressData {
     parcl_property_id: number;
     address: string;
@@ -47,15 +64,8 @@ export interface Property {
     addressData?: {
         items: AddressData[];
     };
-    neighborhoodProperties?: any[]; // Filtered comparable properties (for "Suggested Comps")
-    allProperties?: any[]; // All properties within 1.0-mile radius (for "All Comps")
-    properties?: any[]; // Alternative field name from API response
-    radiusUsed?: number;
-    monthsUsed?: number;
-    usedFallbackCriteria?: boolean; // Flag to indicate if fallback search criteria were used
-    // Add error properties for API error handling
-    errorStatus?: number | string;
-    errorMessage?: string;
+
+    neighborhoodProperties: any[];
 }
 
 // Define the slice state; using an array to allow for multiple properties later
@@ -94,17 +104,6 @@ const propertySlice = createSlice({
         removeProperty(state, action: PayloadAction<number>) {
             state.properties.splice(action.payload, 1);
         },
-        // Clear all property data (reset to initial state)
-        clearPropertyData(state) {
-            return initialState;
-        },
-        // Clear property data for a specific address
-        clearPropertyForAddress(state, action: PayloadAction<string>) {
-            const addressToRemove = action.payload;
-            state.properties = state.properties.filter(
-                property => property.address?.formattedAddress !== addressToRemove
-            );
-        },
         // Optionally, you could add reducers for setting loading and error states
         setLoading(state, action: PayloadAction<boolean>) {
             state.loading = action.payload;
@@ -115,15 +114,7 @@ const propertySlice = createSlice({
     },
 });
 
-export const { 
-    setProperties, 
-    addProperty, 
-    updateProperty, 
-    removeProperty, 
-    clearPropertyData,
-    clearPropertyForAddress,
-    setLoading, 
-    setError 
-} = propertySlice.actions;
+export const { setProperties, addProperty, updateProperty, removeProperty, setLoading, setError } =
+    propertySlice.actions;
 
 export default propertySlice.reducer;

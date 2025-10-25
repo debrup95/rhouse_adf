@@ -1,0 +1,162 @@
+{
+	"name": "bronze_prcl_prop_sales_dtl_DS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzurePostgreSql_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzurePostgreSqlTable",
+		"schema": [
+			{
+				"name": "brnz_prcl_prop_sales_dtl_sk",
+				"type": "bigint",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "load_date_dt",
+				"type": "date",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "etl_nr",
+				"type": "bigint",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "etl_recorded_gmts",
+				"type": "timestamp without time zone",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "record_inserted_ts",
+				"type": "timestamp without time zone",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "investor_company_nm_txt",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_sale_dt",
+				"type": "date",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_sale_amt",
+				"type": "double precision",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_attr_br_cnt",
+				"type": "integer",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_attr_bth_cnt",
+				"type": "integer",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_attr_sqft_nr",
+				"type": "integer",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_yr_blt_nr",
+				"type": "integer",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_address_line_txt",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_city_nm",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_state_nm",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_cnty_nm",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_zip_cd",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_list_price_amt",
+				"type": "double precision",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_acty_status_cd",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_acty_status_dc",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_acty_sub_status_cd",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_acty_sub_status_dc",
+				"type": "text",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "prop_latitude_val",
+				"type": "numeric",
+				"precision": 9,
+				"scale": 6
+			},
+			{
+				"name": "prop_longitude_val",
+				"type": "numeric",
+				"precision": 9,
+				"scale": 6
+			}
+		],
+		"typeProperties": {
+			"schema": "bronze",
+			"table": "brnz_prcl_prop_sales_dtl"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

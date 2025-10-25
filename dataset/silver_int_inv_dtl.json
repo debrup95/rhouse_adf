@@ -1,0 +1,17 @@
+{
+	"name": "silver_int_inv_dtl",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzurePostgreSql_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzurePostgreSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "silver",
+			"table": "slvr_int_inv_dtl"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

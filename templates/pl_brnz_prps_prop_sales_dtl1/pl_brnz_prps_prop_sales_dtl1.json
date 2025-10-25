@@ -1,0 +1,2218 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name"
+		},
+		"delete_ls": {
+			"type": "string"
+		},
+		"AzurePostgreSql_rehouzed": {
+			"type": "string"
+		},
+		"ADLSGen2LinkedService_rehouzed": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_brnz_prps_prop_sales_dtl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup_BRNZ_PRPS_PROP_SALES_DTL",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Set variable2",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzurePostgreSqlSource",
+								"query": "SELECT COALESCE(max(brnz_prps_prop_sales_dtl_sk),0) as mx_brnz_prcl_prop_sales_dtl_sk , COALESCE(max(etl_nr),0) as mx_etl_nr FROM bronze.brnz_prps_prop_sales_dtl;",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "bronze_prcl_prop_sales_dtl_DS",
+								"type": "DatasetReference"
+							}
+						}
+					},
+					{
+						"name": "DF_brnz_prps_prop_sales_dtl_sk",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "Lookup_BRNZ_PRPS_PROP_SALES_DTL",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_brnz_prps_prop_sales_dtl",
+								"type": "DataFlowReference",
+								"parameters": {
+									"etl_nr": {
+										"value": "@activity('Lookup_BRNZ_PRPS_PROP_SALES_DTL').output.firstRow.mx_etl_nr",
+										"type": "Expression"
+									},
+									"brnz_prps_prop_sales_dtl_sk": {
+										"value": "@activity('Lookup_BRNZ_PRPS_PROP_SALES_DTL').output.firstRow.mx_brnz_prcl_prop_sales_dtl_sk",
+										"type": "Expression"
+									},
+									"file_name": {
+										"value": "'@{variables('fl_name')}'",
+										"type": "Expression"
+									}
+								},
+								"datasetParameters": {
+									"sink1": {
+										"file_name": {
+											"value": "@variables('fl_name')",
+											"type": "Expression"
+										}
+									}
+								},
+								"linkedServiceParameters": {
+									"sink1": {
+										"schemaLinkedService": {
+											"file_name": "@variables('fl_name')"
+										}
+									}
+								}
+							},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ADLSDataSet_rehouzed",
+								"type": "DatasetReference"
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "fl_name",
+							"value": {
+								"value": "@concat(activity('Get Metadata1').output.childItems[0].name,'_intermediate_',utcNow())",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Set variable2",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Set variable1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "cmp_fl_name",
+							"value": {
+								"value": "@concat(activity('Get Metadata1').output.childItems[0].name,'_archive_',utcNow())",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Lookup for non empty records",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata for parquet",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							},
+							"dataset": {
+								"referenceName": "bronze_prps_prop_sales_INTM_DS_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"folder_name": {
+										"value": "@variables('fl_name')",
+										"type": "Expression"
+									},
+									"file_name": {
+										"value": "@activity('Get Metadata for parquet').output.childItems[1].name",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Get Metadata for parquet",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "DF_brnz_prps_prop_sales_dtl_sk",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "bronze_prps_prop_sales_INTM_DS",
+								"type": "DatasetReference",
+								"parameters": {
+									"file_name": {
+										"value": "@variables('fl_name')",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "ParquetReadSettings"
+							}
+						}
+					},
+					{
+						"name": "If Condition1",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Lookup for non empty records",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(activity('Lookup for non empty records').output.count,0)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Copy_to_archive_copy1",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"maxConcurrentConnections": 1,
+												"recursive": true,
+												"wildcardFileName": "*.csv",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ADLSDataSet_rehouzed",
+											"type": "DatasetReference"
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ADLSDataset_rehouzd_archive",
+											"type": "DatasetReference",
+											"parameters": {
+												"folder_name": {
+													"value": "@variables('cmp_fl_name')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Delete_source_copy1",
+									"type": "Delete",
+									"dependsOn": [
+										{
+											"activity": "Copy_to_archive_copy1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "ADLSDataSet_rehouzed",
+											"type": "DatasetReference"
+										},
+										"logStorageSettings": {
+											"linkedServiceName": {
+												"referenceName": "[parameters('delete_ls')]",
+												"type": "LinkedServiceReference"
+											},
+											"path": "delete"
+										},
+										"enableLogging": true,
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"wildcardFileName": "*.csv",
+											"enablePartitionDiscovery": false
+										}
+									}
+								}
+							],
+							"ifTrueActivities": [
+								{
+									"name": "copy_data_to_prps_tbl",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@concat(variables('fl_name'),'/')",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "ParquetReadSettings"
+											}
+										},
+										"sink": {
+											"type": "AzurePostgreSQLSink",
+											"writeBatchSize": 1000000,
+											"writeBatchTimeout": "00:30:00",
+											"writeMethod": "CopyCommand"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"mappings": [
+												{
+													"source": {
+														"name": "brnz_prps_prop_sales_dtl_sk",
+														"type": "Int64",
+														"physicalType": "INT64"
+													},
+													"sink": {
+														"name": "brnz_prps_prop_sales_dtl_sk",
+														"type": "Int64",
+														"physicalType": "bigint"
+													}
+												},
+												{
+													"source": {
+														"name": "load_date_dt",
+														"type": "DateTime",
+														"physicalType": "DATE"
+													},
+													"sink": {
+														"name": "load_date_dt",
+														"type": "DateTime",
+														"physicalType": "date"
+													}
+												},
+												{
+													"source": {
+														"name": "etl_nr",
+														"type": "Int32",
+														"physicalType": "INT32"
+													},
+													"sink": {
+														"name": "etl_nr",
+														"type": "Int64",
+														"physicalType": "bigint"
+													}
+												},
+												{
+													"source": {
+														"name": "etl_recorded_gmts",
+														"type": "DateTime",
+														"physicalType": "INT96"
+													},
+													"sink": {
+														"name": "etl_recorded_gmts",
+														"type": "DateTime",
+														"physicalType": "timestamp without time zone"
+													}
+												},
+												{
+													"source": {
+														"name": "record_inserted_ts",
+														"type": "DateTime",
+														"physicalType": "INT96"
+													},
+													"sink": {
+														"name": "record_inserted_ts",
+														"type": "DateTime",
+														"physicalType": "timestamp without time zone"
+													}
+												},
+												{
+													"source": {
+														"name": "investor_company_nm_txt",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "investor_company_nm_txt",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_last_sale_dt",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_last_sale_dt",
+														"type": "DateTime",
+														"physicalType": "date"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_last_sale_amt",
+														"type": "Int32",
+														"physicalType": "INT32"
+													},
+													"sink": {
+														"name": "prop_last_sale_amt",
+														"type": "Double",
+														"physicalType": "double precision"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_attr_br_cnt",
+														"type": "Int16",
+														"physicalType": "INT_16"
+													},
+													"sink": {
+														"name": "prop_attr_br_cnt",
+														"type": "Int32",
+														"physicalType": "integer"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_attr_bth_cnt",
+														"type": "Double",
+														"physicalType": "DOUBLE"
+													},
+													"sink": {
+														"name": "prop_attr_bth_cnt",
+														"type": "Int32",
+														"physicalType": "integer"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_attr_sqft_nr",
+														"type": "Int16",
+														"physicalType": "INT_16"
+													},
+													"sink": {
+														"name": "prop_attr_sqft_nr",
+														"type": "Int32",
+														"physicalType": "integer"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_yr_blt_nr",
+														"type": "Int16",
+														"physicalType": "INT_16"
+													},
+													"sink": {
+														"name": "prop_yr_blt_nr",
+														"type": "Int32",
+														"physicalType": "integer"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_address_line_txt",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_address_line_txt",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_city_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_city_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_state_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_state_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_cnty_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_cnty_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_zip_cd",
+														"type": "Int32",
+														"physicalType": "INT32"
+													},
+													"sink": {
+														"name": "prop_zip_cd",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_tlt_cnd_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_tlt_cnd_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_int_cnd_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_int_cnd_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_ext_cnd_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_ext_cnd_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_bth_cnd_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_bth_cnd_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_kth_cnd_nm",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "prop_kth_cnd_nm",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_list_price_amt",
+														"type": "Int32",
+														"physicalType": "INT32"
+													},
+													"sink": {
+														"name": "prop_list_price_amt",
+														"type": "Double",
+														"physicalType": "double precision"
+													}
+												},
+												{
+													"source": {
+														"name": "mailing_zip",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "mailing_zip",
+														"physicalType": "boolean"
+													}
+												},
+												{
+													"source": {
+														"name": "mailing_address",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "mailing_address",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "mailing_unit",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "mailing_unit",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "mailing_city",
+														"type": "String",
+														"physicalType": "UTF8"
+													},
+													"sink": {
+														"name": "mailing_city",
+														"type": "String",
+														"physicalType": "text"
+													}
+												},
+												{
+													"source": {
+														"name": "mailing_state"
+													},
+													"sink": {
+														"name": "mailing_state"
+													}
+												},
+												{
+													"source": {
+														"name": "prop_lndr_nm"
+													},
+													"sink": {
+														"name": "prop_lndr_nm"
+													}
+												}
+											],
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "bronze_prps_prop_sales_INTM_DS",
+											"type": "DatasetReference",
+											"parameters": {
+												"file_name": {
+													"value": "@variables('fl_name')",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "bronze_prps_prop_sales_dtl_DS",
+											"type": "DatasetReference"
+										}
+									]
+								},
+								{
+									"name": "Copy_to_archive",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "copy_data_to_prps_tbl",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"maxConcurrentConnections": 1,
+												"recursive": true,
+												"wildcardFileName": "*.csv",
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ADLSDataSet_rehouzed",
+											"type": "DatasetReference"
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ADLSDataset_rehouzd_archive",
+											"type": "DatasetReference",
+											"parameters": {
+												"folder_name": {
+													"value": "@variables('cmp_fl_name')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Delete_source",
+									"type": "Delete",
+									"dependsOn": [
+										{
+											"activity": "Copy_to_archive",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "ADLSDataSet_rehouzed",
+											"type": "DatasetReference"
+										},
+										"logStorageSettings": {
+											"linkedServiceName": {
+												"referenceName": "[parameters('delete_ls')]",
+												"type": "LinkedServiceReference"
+											},
+											"path": "delete"
+										},
+										"enableLogging": true,
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"wildcardFileName": "*.csv",
+											"enablePartitionDiscovery": false
+										}
+									}
+								},
+								{
+									"name": "Lookup_rec_lookup",
+									"type": "Lookup",
+									"dependsOn": [
+										{
+											"activity": "Delete_source",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzurePostgreSqlSource",
+											"query": {
+												"value": "select max(tbl_id) as mx_id, null AS dtl_sk, null AS etl_recorded_gmts\nfrom lookups.adf_load_tracker\nunion\nSELECT \n\tnull as mx_id,\n    COALESCE(MAX(etl_nr), 0) AS dtl_sk, \n    COALESCE(MAX(etl_recorded_gmts), TIMESTAMP '1970-01-01 00:00:00') AS etl_recorded_gmts\nFROM bronze.brnz_prps_prop_sales_dtl;",
+												"type": "Expression"
+											},
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "lookup_adf_load_tracker",
+											"type": "DatasetReference"
+										},
+										"firstRowOnly": false
+									}
+								},
+								{
+									"name": "Set variable_mx_id_copy1",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Lookup_rec_lookup",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "mx_id",
+										"value": {
+											"value": "@activity('Lookup_rec_lookup').output.value[0].mx_id",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Set variable dtl sk",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Set variable_mx_id_copy1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "dtl_sk",
+										"value": {
+											"value": "@activity('Lookup_rec_lookup').output.value[1].dtl_sk",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Set variable etl_recorded_gmts",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "Set variable dtl sk",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "etl_recorded_gmts",
+										"value": {
+											"value": "@activity('Lookup_rec_lookup').output.value[1].etl_recorded_gmts",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "update bronze lookup",
+									"type": "WebActivity",
+									"dependsOn": [
+										{
+											"activity": "Set variable etl_recorded_gmts",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"method": "GET",
+										"url": {
+											"value": "@concat(\n    'https://rehouzdfunctions19.azurewebsites.net/api/rehouzd_function?',\n    'process_key=', pipeline().parameters.process_key,\n    '&etl_recorded_gmts=', variables('etl_recorded_gmts'),\n    '&etl_nr=', uriComponent(variables('dtl_sk')),\n    '&code=uuzR5JGEqKlI-YrZoisaqvYr7XeIoDeTakCvFVgz3XHkAzFusOjw6Q=='\n)\n",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"parameters": {
+					"process_key": {
+						"type": "string",
+						"defaultValue": "bnz_prps_upd"
+					}
+				},
+				"variables": {
+					"etl_nr": {
+						"type": "Integer"
+					},
+					"brnz_prps_prop_sales_dtl_sk": {
+						"type": "Integer"
+					},
+					"fl_name": {
+						"type": "String"
+					},
+					"cmp_fl_name": {
+						"type": "String"
+					},
+					"mx_id": {
+						"type": "Integer"
+					},
+					"dtl_sk": {
+						"type": "Integer"
+					},
+					"etl_recorded_gmts": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-11T08:04:12Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/bronze_prcl_prop_sales_dtl_DS')]",
+				"[concat(variables('factoryId'), '/dataflows/df_brnz_prps_prop_sales_dtl')]",
+				"[concat(variables('factoryId'), '/datasets/ADLSDataSet_rehouzed')]",
+				"[concat(variables('factoryId'), '/datasets/bronze_prps_prop_sales_INTM_DS_folder')]",
+				"[concat(variables('factoryId'), '/datasets/bronze_prps_prop_sales_INTM_DS')]",
+				"[concat(variables('factoryId'), '/datasets/ADLSDataset_rehouzd_archive')]",
+				"[concat(variables('factoryId'), '/datasets/bronze_prps_prop_sales_dtl_DS')]",
+				"[concat(variables('factoryId'), '/datasets/lookup_adf_load_tracker')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/bronze_prcl_prop_sales_dtl_DS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('AzurePostgreSql_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzurePostgreSqlTable",
+				"schema": [
+					{
+						"name": "brnz_prcl_prop_sales_dtl_sk",
+						"type": "bigint",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "load_date_dt",
+						"type": "date",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "etl_nr",
+						"type": "bigint",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "etl_recorded_gmts",
+						"type": "timestamp without time zone",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "record_inserted_ts",
+						"type": "timestamp without time zone",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "investor_company_nm_txt",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_sale_dt",
+						"type": "date",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_sale_amt",
+						"type": "double precision",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_br_cnt",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_bth_cnt",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_sqft_nr",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_yr_blt_nr",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_address_line_txt",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_city_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_state_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_cnty_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_zip_cd",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_list_price_amt",
+						"type": "double precision",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_acty_status_cd",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_acty_status_dc",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_acty_sub_status_cd",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_acty_sub_status_dc",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_latitude_val",
+						"type": "numeric",
+						"precision": 9,
+						"scale": 6
+					},
+					{
+						"name": "prop_longitude_val",
+						"type": "numeric",
+						"precision": 9,
+						"scale": 6
+					}
+				],
+				"typeProperties": {
+					"schema": "bronze",
+					"table": "brnz_prcl_prop_sales_dtl"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/df_brnz_prps_prop_sales_dtl')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ADLSDataSet_rehouzed",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "bronze_prps_prop_sales_dtl_DS",
+								"type": "DatasetReference"
+							},
+							"name": "sourceTbl"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "bronze_prps_prop_sales_INTM_DS",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "select1"
+						},
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "filter1"
+						},
+						{
+							"name": "select3"
+						},
+						{
+							"name": "filterPropLstDtNN"
+						},
+						{
+							"name": "derivedColumnTbl"
+						},
+						{
+							"name": "selectSourceTbls"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     etl_nr as integer,",
+						"     brnz_prps_prop_sales_dtl_sk as integer,",
+						"     file_name as string",
+						"}",
+						"source(output(",
+						"          Address as string,",
+						"          {Unit #} as string,",
+						"          City as string,",
+						"          State as string,",
+						"          Zip as integer,",
+						"          County as string,",
+						"          APN as string,",
+						"          {Owner Occupied} as boolean,",
+						"          {Owner 1 First Name} as string,",
+						"          {Owner 1 Last Name} as string,",
+						"          {Owner 2 First Name} as string,",
+						"          {Owner 2 Last Name} as string,",
+						"          {Mailing Care of Name} as string,",
+						"          {Mailing Address} as string,",
+						"          {Mailing Unit #} as string,",
+						"          {Mailing City} as string,",
+						"          {Mailing State} as string,",
+						"          {Mailing Zip} as string,",
+						"          {Mailing County} as string,",
+						"          {Do Not Mail} as boolean,",
+						"          {Property Class} as string,",
+						"          {Property Type} as string,",
+						"          Bedrooms as short,",
+						"          {Total Bathrooms} as double,",
+						"          {Building Sqft} as short,",
+						"          {Lot Size Sqft} as integer,",
+						"          {Year Built} as short,",
+						"          {Effective Year Built} as short,",
+						"          {Pool Type} as string,",
+						"          Vacant as boolean,",
+						"          {HOA Present} as boolean,",
+						"          {Total Assessed Value} as integer,",
+						"          {Last Sale Date} as date 'MM-dd-yyyy',",
+						"          {Last Sale Recording Date} as date,",
+						"          {Last Sale Amount} as integer,",
+						"          {Last Cash Buyer} as boolean,",
+						"          {Last Sale Buyer Name 1} as string,",
+						"          {Last Sale Buyer Name 2} as string,",
+						"          {Prior Sale Date} as date,",
+						"          {Prior Sale Recordng Date} as date,",
+						"          {Prior Sale Amount} as integer,",
+						"          {Prior Sale Cash Buyer} as boolean,",
+						"          {Prior Sale Buyer Name 1} as string,",
+						"          {Prior Sale Buyer Name 2} as string,",
+						"          {Loan 1 Date} as date,",
+						"          {Loan 1 Balance} as integer,",
+						"          {Loan 1 Type} as string,",
+						"          {Loan 1 Lender} as string,",
+						"          {Loan 1 Rate} as double,",
+						"          {Loan 1 Rate Type} as string,",
+						"          {Loan 2 Date} as date,",
+						"          {Loan 2 Balance} as integer,",
+						"          {Loan 2 Type} as string,",
+						"          {Loan 2 Lender} as string,",
+						"          {Loan 2 Rate} as double,",
+						"          {Loan 2 Rate Type} as string,",
+						"          {Total Open Loans} as short,",
+						"          {Est. Remaining balance of Open Loans} as integer,",
+						"          {Est. Value} as integer,",
+						"          {Est. Loan-to-Value} as double,",
+						"          {Est. Equity} as integer,",
+						"          {Monthly Rent} as double,",
+						"          {Gross Yield %} as double,",
+						"          {Est. Total Monthly Payments} as double,",
+						"          {Total Condition} as string,",
+						"          {Interior Condition} as string,",
+						"          {Exterior Condition} as string,",
+						"          {Bathroom Condition} as string,",
+						"          {Kitchen Condition} as string,",
+						"          {Foreclosure Factor} as string,",
+						"          {MLS Status} as string,",
+						"          {MLS Date} as string,",
+						"          {MLS Amount} as integer,",
+						"          {MLS Agent Name} as string,",
+						"          {MLS Agent Phone} as string,",
+						"          {MLS Agent E-Mail} as string,",
+						"          {MLS Brokerage Name} as string,",
+						"          {MLS Brokerage Phone} as string,",
+						"          {Lien Amount} as string,",
+						"          {Marketing Lists} as short,",
+						"          {Date Added to List} as string,",
+						"          {Method of Add} as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> source1",
+						"source(output(",
+						"          brnz_prps_prop_sales_dtl_sk as long,",
+						"          load_date_dt as date,",
+						"          etl_nr as long,",
+						"          etl_recorded_gmts as timestamp,",
+						"          record_inserted_ts as timestamp,",
+						"          investor_company_nm_txt as string,",
+						"          prop_last_sale_dt as date,",
+						"          prop_last_sale_amt as double,",
+						"          prop_attr_br_cnt as integer,",
+						"          prop_attr_bth_cnt as integer,",
+						"          prop_attr_sqft_nr as integer,",
+						"          prop_yr_blt_nr as integer,",
+						"          prop_address_line_txt as string,",
+						"          prop_city_nm as string,",
+						"          prop_state_nm as string,",
+						"          prop_cnty_nm as string,",
+						"          prop_zip_cd as string,",
+						"          prop_tlt_cnd_nm as string,",
+						"          prop_int_cnd_nm as string,",
+						"          prop_ext_cnd_nm as string,",
+						"          prop_bth_cnd_nm as string,",
+						"          prop_kth_cnd_nm as string,",
+						"          prop_list_price_amt as double,",
+						"          active_rec_ind as boolean,",
+						"          mailing_address as string,",
+						"          mailing_unit as string,",
+						"          mailing_city as string,",
+						"          mailing_zip as string,",
+						"          mailing_state as string,",
+						"          prop_lndr_nm as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'SELECT * FROM bronze.brnz_prps_prop_sales_dtl\\nwhere etl_nr = (select max(etl_nr) from bronze.brnz_prps_prop_sales_dtl )',",
+						"     format: 'query') ~> sourceTbl",
+						"source1 select(mapColumn(",
+						"          INVESTOR_COMPANY_NM_TXT = {Owner 1 Last Name},",
+						"          PROP_LAST_SALE_DT = {Last Sale Date},",
+						"          PROP_LAST_SALE_AMT = {Last Sale Amount},",
+						"          PROP_ATTR_BR_CNT = Bedrooms,",
+						"          PROP_ATTR_BTH_CNT = {Total Bathrooms},",
+						"          PROP_ATTR_SQFT_NR = {Building Sqft},",
+						"          PROP_YR_BLT_NR = {Year Built},",
+						"          PROP_ADDRESS_LINE_TXT = Address,",
+						"          PROP_CITY_NM = City,",
+						"          PROP_STATE_NM = State,",
+						"          PROP_CNTY_NM = County,",
+						"          PROP_ZIP_CD = Zip,",
+						"          PROP_TLT_CND_NM = {Total Condition},",
+						"          PROP_INT_CND_NM = {Interior Condition},",
+						"          PROP_EXT_CND_NM = {Exterior Condition},",
+						"          PROP_BTH_CND_NM = {Bathroom Condition},",
+						"          PROP_KTH_CND_NM = {Kitchen Condition},",
+						"          PROP_LIST_PRICE_AMT = {MLS Amount},",
+						"          {Mailing Address},",
+						"          {Mailing Unit} = {Mailing Unit #},",
+						"          {Mailing City},",
+						"          {Mailing State},",
+						"          {Mailing Zip},",
+						"          {Loan 1 Lender}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 keyGenerate(output(sk_num as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"surrogateKey1 derive(brnz_prps_prop_sales_dtl_sk = add($brnz_prps_prop_sales_dtl_sk,sk_num),",
+						"          etl_nr = add($etl_nr, 1),",
+						"          LOAD_DATE_DT = currentDate(),",
+						"          ETL_RECORDED_GMTS = currentTimestamp(),",
+						"          RECORD_INSERTED_TS = currentTimestamp(),",
+						"          PROP_LAST_SALE_DT = toDate(toString(PROP_LAST_SALE_DT),'yyyy-MM-dd'),",
+						"          derived_addr = concat(\r",
+						"  coalesce(toString(PROP_ADDRESS_LINE_TXT), ''),\r",
+						"  ', ',\r",
+						"  coalesce(toString(PROP_CITY_NM), ''),\r",
+						"  ', ',\r",
+						"  coalesce(toString(PROP_STATE_NM), ''),\r",
+						"  ', ',\r",
+						"  coalesce(toString(PROP_CNTY_NM), ''),\r",
+						"  ', ',\r",
+						"  coalesce(toString(PROP_ZIP_CD), '')\r",
+						"),",
+						"          local1 := currentTimestamp()) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          brnz_prps_prop_sales_dtl_sk,",
+						"          load_date_dt = LOAD_DATE_DT,",
+						"          etl_nr,",
+						"          etl_recorded_gmts = ETL_RECORDED_GMTS,",
+						"          record_inserted_ts = RECORD_INSERTED_TS,",
+						"          investor_company_nm_txt = INVESTOR_COMPANY_NM_TXT,",
+						"          prop_last_sale_dt = PROP_LAST_SALE_DT,",
+						"          prop_last_sale_amt = PROP_LAST_SALE_AMT,",
+						"          prop_attr_br_cnt = PROP_ATTR_BR_CNT,",
+						"          prop_attr_bth_cnt = PROP_ATTR_BTH_CNT,",
+						"          prop_attr_sqft_nr = PROP_ATTR_SQFT_NR,",
+						"          prop_yr_blt_nr = PROP_YR_BLT_NR,",
+						"          prop_address_line_txt = PROP_ADDRESS_LINE_TXT,",
+						"          prop_city_nm = PROP_CITY_NM,",
+						"          prop_state_nm = PROP_STATE_NM,",
+						"          prop_cnty_nm = PROP_CNTY_NM,",
+						"          prop_zip_cd = PROP_ZIP_CD,",
+						"          prop_tlt_cnd_nm = PROP_TLT_CND_NM,",
+						"          prop_int_cnd_nm = PROP_INT_CND_NM,",
+						"          prop_ext_cnd_nm = PROP_EXT_CND_NM,",
+						"          prop_bth_cnd_nm = PROP_BTH_CND_NM,",
+						"          prop_kth_cnd_nm = PROP_KTH_CND_NM,",
+						"          prop_list_price_amt = PROP_LIST_PRICE_AMT,",
+						"          mailing_address = {Mailing Address},",
+						"          mailing_unit = {Mailing Unit},",
+						"          mailing_city = {Mailing City},",
+						"          mailing_state = {Mailing State},",
+						"          mailing_zip = {Mailing Zip},",
+						"          prop_lndr_nm = {Loan 1 Lender},",
+						"          derived_addr",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"filterPropLstDtNN, selectSourceTbls join(select2@investor_company_nm_txt == selectSourceTbls@investor_company_nm_txt",
+						"     && select2@derived_addr == selectSourceTbls@derived_addr",
+						"     && select2@prop_last_sale_dt == selectSourceTbls@prop_last_sale_dt,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 filter(isNull(selectSourceTbls@investor_company_nm_txt)) ~> filter1",
+						"filter1 select(mapColumn(",
+						"          brnz_prps_prop_sales_dtl_sk = select2@brnz_prps_prop_sales_dtl_sk,",
+						"          load_date_dt = select2@load_date_dt,",
+						"          etl_nr = select2@etl_nr,",
+						"          etl_recorded_gmts = select2@etl_recorded_gmts,",
+						"          record_inserted_ts = select2@record_inserted_ts,",
+						"          investor_company_nm_txt = select2@investor_company_nm_txt,",
+						"          prop_last_sale_dt = select2@prop_last_sale_dt,",
+						"          prop_last_sale_amt = select2@prop_last_sale_amt,",
+						"          prop_attr_br_cnt = select2@prop_attr_br_cnt,",
+						"          prop_attr_bth_cnt = select2@prop_attr_bth_cnt,",
+						"          prop_attr_sqft_nr = select2@prop_attr_sqft_nr,",
+						"          prop_yr_blt_nr = select2@prop_yr_blt_nr,",
+						"          prop_address_line_txt = select2@prop_address_line_txt,",
+						"          prop_city_nm = select2@prop_city_nm,",
+						"          prop_state_nm = select2@prop_state_nm,",
+						"          prop_cnty_nm = select2@prop_cnty_nm,",
+						"          prop_zip_cd = select2@prop_zip_cd,",
+						"          prop_tlt_cnd_nm = select2@prop_tlt_cnd_nm,",
+						"          prop_int_cnd_nm = select2@prop_int_cnd_nm,",
+						"          prop_ext_cnd_nm = select2@prop_ext_cnd_nm,",
+						"          prop_bth_cnd_nm = select2@prop_bth_cnd_nm,",
+						"          prop_kth_cnd_nm = select2@prop_kth_cnd_nm,",
+						"          prop_list_price_amt = select2@prop_list_price_amt,",
+						"          mailing_address = select2@mailing_address,",
+						"          mailing_unit = select2@mailing_unit,",
+						"          mailing_city = select2@mailing_city,",
+						"          mailing_state = select2@mailing_state,",
+						"          mailing_zip = select2@mailing_zip,",
+						"          prop_lndr_nm = select2@prop_lndr_nm,",
+						"          brnz_prps_prop_sales_dtl_sk = select2@brnz_prps_prop_sales_dtl_sk,",
+						"          load_date_dt = select2@load_date_dt,",
+						"          etl_nr = select2@etl_nr,",
+						"          etl_recorded_gmts = select2@etl_recorded_gmts,",
+						"          record_inserted_ts = select2@etl_recorded_gmts,",
+						"          investor_company_nm_txt = select2@investor_company_nm_txt,",
+						"          prop_last_sale_dt = select2@prop_last_sale_dt,",
+						"          prop_last_sale_amt = select2@prop_last_sale_amt,",
+						"          prop_attr_br_cnt = select2@prop_attr_br_cnt,",
+						"          prop_attr_bth_cnt = select2@prop_attr_bth_cnt,",
+						"          prop_attr_sqft_nr = select2@prop_attr_sqft_nr,",
+						"          prop_yr_blt_nr = select2@prop_yr_blt_nr,",
+						"          prop_address_line_txt = select2@prop_address_line_txt,",
+						"          prop_city_nm = select2@prop_city_nm,",
+						"          prop_state_nm = select2@prop_state_nm,",
+						"          prop_cnty_nm = select2@prop_cnty_nm,",
+						"          prop_zip_cd = select2@prop_zip_cd,",
+						"          prop_tlt_cnd_nm = select2@prop_tlt_cnd_nm,",
+						"          prop_int_cnd_nm = select2@prop_int_cnd_nm,",
+						"          prop_ext_cnd_nm = select2@prop_ext_cnd_nm,",
+						"          prop_bth_cnd_nm = select2@prop_bth_cnd_nm,",
+						"          prop_kth_cnd_nm = select2@prop_kth_cnd_nm,",
+						"          prop_list_price_amt = select2@prop_list_price_amt,",
+						"          active_rec_ind,",
+						"          mailing_address = select2@mailing_address,",
+						"          mailing_unit = select2@mailing_unit,",
+						"          mailing_city = select2@mailing_city,",
+						"          mailing_zip = select2@mailing_zip,",
+						"          mailing_state = select2@mailing_state,",
+						"          prop_lndr_nm = select2@prop_lndr_nm",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select3",
+						"select2 filter(!isNull(prop_last_sale_dt)) ~> filterPropLstDtNN",
+						"sourceTbl derive(derived_addr = concat(  coalesce(toString(prop_address_line_txt), ''),  ', ',  coalesce(toString(prop_city_nm), ''),  ', ',  coalesce(toString(prop_state_nm), ''),  ', ',  coalesce(toString(prop_cnty_nm), ''),  ', ',  coalesce(toString(prop_zip_cd), ''))) ~> derivedColumnTbl",
+						"derivedColumnTbl select(mapColumn(",
+						"          brnz_prps_prop_sales_dtl_sk,",
+						"          load_date_dt,",
+						"          etl_nr,",
+						"          etl_recorded_gmts,",
+						"          record_inserted_ts,",
+						"          investor_company_nm_txt,",
+						"          prop_last_sale_dt,",
+						"          prop_last_sale_amt,",
+						"          prop_attr_br_cnt,",
+						"          prop_attr_bth_cnt,",
+						"          prop_attr_sqft_nr,",
+						"          prop_yr_blt_nr,",
+						"          prop_address_line_txt,",
+						"          prop_city_nm,",
+						"          prop_state_nm,",
+						"          prop_cnty_nm,",
+						"          prop_zip_cd,",
+						"          prop_tlt_cnd_nm,",
+						"          prop_int_cnd_nm,",
+						"          prop_ext_cnd_nm,",
+						"          prop_bth_cnd_nm,",
+						"          prop_kth_cnd_nm,",
+						"          prop_list_price_amt,",
+						"          active_rec_ind,",
+						"          mailing_address,",
+						"          mailing_unit,",
+						"          mailing_city,",
+						"          mailing_zip,",
+						"          mailing_state,",
+						"          prop_lndr_nm,",
+						"          derived_addr",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectSourceTbls",
+						"select3 sink(allowSchemaDrift: true,",
+						"     validateSchema: true,",
+						"     input(",
+						"          brnz_prps_prop_sales_dtl_sk as long,",
+						"          load_date_dt as date,",
+						"          etl_nr as integer,",
+						"          etl_recorded_gmts as timestamp,",
+						"          record_inserted_ts as timestamp,",
+						"          investor_company_nm_txt as string,",
+						"          prop_last_sale_dt as string,",
+						"          prop_last_sale_amt as integer,",
+						"          prop_attr_br_cnt as short,",
+						"          prop_attr_bth_cnt as double,",
+						"          prop_attr_sqft_nr as short,",
+						"          prop_yr_blt_nr as short,",
+						"          prop_address_line_txt as string,",
+						"          prop_city_nm as string,",
+						"          prop_state_nm as string,",
+						"          prop_cnty_nm as string,",
+						"          prop_zip_cd as integer,",
+						"          prop_tlt_cnd_nm as string,",
+						"          prop_int_cnd_nm as string,",
+						"          prop_ext_cnd_nm as string,",
+						"          prop_bth_cnd_nm as string,",
+						"          prop_kth_cnd_nm as string,",
+						"          prop_list_price_amt as integer,",
+						"          mailing_address as string,",
+						"          mailing_unit as string,",
+						"          mailing_city as string,",
+						"          mailing_zip as string",
+						"     ),",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     saveOrder: 1) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ADLSDataSet_rehouzed')]",
+				"[concat(variables('factoryId'), '/datasets/bronze_prps_prop_sales_dtl_DS')]",
+				"[concat(variables('factoryId'), '/datasets/bronze_prps_prop_sales_INTM_DS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ADLSDataSet_rehouzed')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ADLSGen2LinkedService_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "source"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/bronze_prps_prop_sales_INTM_DS_folder')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ADLSGen2LinkedService_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"folder_name": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_name",
+							"type": "Expression"
+						},
+						"fileSystem": "intermediate"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "brnz_prps_prop_sales_dtl_sk",
+						"type": "INT64"
+					},
+					{
+						"name": "load_date_dt",
+						"type": "DATE"
+					},
+					{
+						"name": "etl_nr",
+						"type": "INT32"
+					},
+					{
+						"name": "etl_recorded_gmts",
+						"type": "INT96"
+					},
+					{
+						"name": "record_inserted_ts",
+						"type": "INT96"
+					},
+					{
+						"name": "investor_company_nm_txt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_last_sale_dt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_last_sale_amt",
+						"type": "INT32"
+					},
+					{
+						"name": "prop_attr_br_cnt",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_attr_bth_cnt",
+						"type": "DOUBLE"
+					},
+					{
+						"name": "prop_attr_sqft_nr",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_yr_blt_nr",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_address_line_txt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_city_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_state_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_cnty_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_zip_cd",
+						"type": "INT32"
+					},
+					{
+						"name": "prop_tlt_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_int_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_ext_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_bth_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_kth_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_list_price_amt",
+						"type": "INT32"
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/bronze_prps_prop_sales_INTM_DS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ADLSGen2LinkedService_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"fileSystem": "intermediate"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "brnz_prps_prop_sales_dtl_sk",
+						"type": "INT64"
+					},
+					{
+						"name": "load_date_dt",
+						"type": "DATE"
+					},
+					{
+						"name": "etl_nr",
+						"type": "INT32"
+					},
+					{
+						"name": "etl_recorded_gmts",
+						"type": "INT96"
+					},
+					{
+						"name": "record_inserted_ts",
+						"type": "INT96"
+					},
+					{
+						"name": "investor_company_nm_txt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_last_sale_dt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_last_sale_amt",
+						"type": "INT32"
+					},
+					{
+						"name": "prop_attr_br_cnt",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_attr_bth_cnt",
+						"type": "DOUBLE"
+					},
+					{
+						"name": "prop_attr_sqft_nr",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_yr_blt_nr",
+						"type": "INT_16"
+					},
+					{
+						"name": "prop_address_line_txt",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_city_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_state_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_cnty_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_zip_cd",
+						"type": "INT32"
+					},
+					{
+						"name": "prop_tlt_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_int_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_ext_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_bth_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_kth_cnd_nm",
+						"type": "UTF8"
+					},
+					{
+						"name": "prop_list_price_amt",
+						"type": "INT32"
+					},
+					{
+						"name": "mailing_address",
+						"type": "UTF8"
+					},
+					{
+						"name": "mailing_unit",
+						"type": "UTF8"
+					},
+					{
+						"name": "mailing_city",
+						"type": "UTF8"
+					},
+					{
+						"name": "mailing_zip",
+						"type": "UTF8"
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/bronze_prps_prop_sales_dtl_DS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('AzurePostgreSql_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzurePostgreSqlTable",
+				"schema": [
+					{
+						"name": "brnz_prps_prop_sales_dtl_sk",
+						"type": "bigint",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "load_date_dt",
+						"type": "date",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "etl_nr",
+						"type": "bigint",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "etl_recorded_gmts",
+						"type": "timestamp without time zone",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "record_inserted_ts",
+						"type": "timestamp without time zone",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "investor_company_nm_txt",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_last_sale_dt",
+						"type": "date",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_last_sale_amt",
+						"type": "double precision",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_br_cnt",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_bth_cnt",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_attr_sqft_nr",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_yr_blt_nr",
+						"type": "integer",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_address_line_txt",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_city_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_state_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_cnty_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_zip_cd",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_tlt_cnd_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_int_cnd_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_ext_cnd_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_bth_cnd_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_kth_cnd_nm",
+						"type": "text",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "prop_list_price_amt",
+						"type": "double precision",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "bronze",
+					"table": "brnz_prps_prop_sales_dtl"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ADLSDataset_rehouzd_archive')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ADLSGen2LinkedService_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"folder_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().folder_name",
+							"type": "Expression"
+						},
+						"fileSystem": "archive"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/lookup_adf_load_tracker')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('AzurePostgreSql_rehouzed')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzurePostgreSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "lookups",
+					"table": "adf_load_tracker"
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

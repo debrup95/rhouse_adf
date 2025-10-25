@@ -30,7 +30,6 @@
     "framer-motion": "^12.4.10",
     "passport": "^0.7.0",
     "path": "^0.12.7",
-    "react-animated-counter": "^1.7.9",
     "react-icons": "^5.5.0"
   }
 }

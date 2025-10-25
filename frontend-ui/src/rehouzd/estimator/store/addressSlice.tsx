@@ -10,12 +10,6 @@ export interface AddressState {
     lat: number;
     lng: number;
     condition?: string;
-    updatedPropertyDetails?: {
-        bedrooms: number;
-        bathrooms: number;
-        square_footage: number;
-        year_built: number;
-    };
 }
 
 const initialState: AddressState = {

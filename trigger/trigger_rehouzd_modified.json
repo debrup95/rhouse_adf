@@ -1,0 +1,25 @@
+{
+	"name": "trigger_rehouzd_modified",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "rehouzd_pipeline",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "BlobEventsTrigger",
+		"typeProperties": {
+			"blobPathBeginsWith": "/source/blobs/",
+			"blobPathEndsWith": ".csv",
+			"ignoreEmptyBlobs": true,
+			"scope": "/subscriptions/6c14f46f-1db4-436e-aa05-eb2e44615221/resourceGroups/rehouzd-estimator/providers/Microsoft.Storage/storageAccounts/rehouzdestimatedev",
+			"events": [
+				"Microsoft.Storage.BlobCreated"
+			]
+		}
+	}
+}

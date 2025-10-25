@@ -1,0 +1,14 @@
+{
+	"name": "rehouzd-df",
+	"properties": {
+		"globalConfigurations": {
+			"PipelineBillingEnabled": "false"
+		}
+	},
+	"location": "centralus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "c292136f-62d9-4eeb-a3b3-ac8f2f3efc7b",
+		"tenantId": "25c85834-43ef-4237-b0fc-013d98cec086"
+	}
+}

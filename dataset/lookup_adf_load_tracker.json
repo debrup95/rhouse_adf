@@ -1,0 +1,17 @@
+{
+	"name": "lookup_adf_load_tracker",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzurePostgreSql_rehouzed",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzurePostgreSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "lookups",
+			"table": "adf_load_tracker"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

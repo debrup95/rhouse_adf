@@ -1,0 +1,153 @@
+{
+	"name": "prc_slv_int_prp_dtl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Web_process_sls_int_dtl",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": {
+						"value": "@concat(\n    'https://rehouzdfunctions19.azurewebsites.net/api/rehouzd_function?',\n    'process_key=', 'call_slvr_int_prp_dtl',\n    '&code=uuzR5JGEqKlI-YrZoisaqvYr7XeIoDeTakCvFVgz3XHkAzFusOjw6Q=='\n)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Until status for 3 hour",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Set variable etl",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(variables('cnt'),0)",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Lookup_cnt",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzurePostgreSqlSource",
+									"query": {
+										"value": "@concat('SELECT count(*) as cnt FROM lookups.adf_load_tracker WHERE tbl_nm = ''slvr_int_prop_sales_dlt'' AND etl_nr = ', string(variables('etl_nr')))",
+										"type": "Expression"
+									},
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "lookup_adf_load_tracker",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "Set variable cnt",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Lookup_cnt",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "cnt",
+								"value": {
+									"value": "@activity('Lookup_cnt').output.firstRow.cnt",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Wait for 10 seconds",
+							"type": "Wait",
+							"dependsOn": [
+								{
+									"activity": "Set variable cnt",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 10
+							}
+						}
+					],
+					"timeout": "0.03:00:00"
+				}
+			},
+			{
+				"name": "Set variable etl",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Web_process_sls_int_dtl",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "etl_nr",
+					"value": {
+						"value": "@activity('Web_process_sls_int_dtl').output.value",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"variables": {
+			"etl_nr": {
+				"type": "Integer",
+				"defaultValue": 2
+			},
+			"cnt": {
+				"type": "Integer",
+				"defaultValue": 0
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-13T11:43:36Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
