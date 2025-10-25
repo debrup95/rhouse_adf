@@ -1,0 +1,39 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Define build arguments
+ARG REACT_APP_Maps_API_KEY
+ARG REACT_APP_GOOGLE_MAP_ID
+ARG REACT_APP_API_URL=http://backend-server:5004
+ARG REACT_APP_GOOGLE_CLIENT_ID
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --network-timeout=100000 --no-fund --loglevel=error
+
+# Copy the rest of the application code
+COPY . .
+
+# Set environment variables for development
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+ENV NODE_ENV=development
+ENV DISABLE_ESLINT_PLUGIN=true
+ENV CI=false
+ENV REACT_APP_Maps_API_KEY=${REACT_APP_Maps_API_KEY}
+ENV REACT_APP_GOOGLE_MAP_ID=${REACT_APP_GOOGLE_MAP_ID}
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
+ENV WDS_SOCKET_HOST=127.0.0.1
+ENV WDS_SOCKET_PORT=3000
+ENV DANGEROUSLY_DISABLE_HOST_CHECK=true
+ENV PORT=3000
+
+# Expose port for React development server
+EXPOSE 3000
+
+# Start the application in development mode
+CMD ["npm", "start"] 

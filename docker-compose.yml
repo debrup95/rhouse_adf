@@ -1,0 +1,75 @@
+services:
+  frontend:
+    build:
+      context: ./frontend-ui
+      dockerfile: Dockerfile.dev
+      args:
+        - REACT_APP_Maps_API_KEY=${REACT_APP_Maps_API_KEY}
+        - REACT_APP_GOOGLE_MAP_ID=${REACT_APP_GOOGLE_MAP_ID}
+        - REACT_APP_API_URL=http://localhost:5004
+        - REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
+    container_name: rehouzd-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend-ui/src:/app/src
+      - ./frontend-ui/public:/app/public
+    environment:
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+      - PORT=3000
+      - REACT_APP_API_URL=http://localhost:5004
+      - REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
+      - WDS_SOCKET_HOST=127.0.0.1
+      - WDS_SOCKET_PORT=3000
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true
+    depends_on:
+      - backend
+    networks:
+      - rehouzd-network
+
+  backend:
+    build:
+      context: ./backend-server
+      dockerfile: Dockerfile.dev
+    container_name: rehouzd-backend
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./backend-server:/app
+      - /app/node_modules
+    env_file:
+      - ./backend-server/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=5004
+      - CORS_ORIGIN=http://localhost:3000
+      - DB_HOST=postgres
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/rehouzd
+    depends_on:
+      - postgres
+    networks:
+      - rehouzd-network
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: rehouzd-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: rehouzd
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - rehouzd-network
+
+networks:
+  rehouzd-network:
+    driver: bridge
+
+volumes:
+  postgres_data: 

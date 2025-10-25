@@ -1,0 +1,213 @@
+# This file is not currently used, it is more of a template for future CICD enhancements
+name: CI/CD to Azure
+
+on:
+  push:
+    branches:
+      - none
+  pull_request:
+    branches:
+      - none
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }} 
+  RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+  LOCATION: southcentralus
+  PLAN_NAME: rehouzd-plan
+  FRONTEND_APP: rehouzd-frontend
+  BACKEND_APP: rehouzd-backend
+  POSTGRES_SERVER: rehouzd-db
+  KEYVAULT_NAME: rehouzd-kv
+  CUSTOM_DOMAIN: rehouzd.com
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+
+    - name: Install & Test Backend
+      run: |
+        cd backend-server
+        npm ci
+        npm test
+
+    - name: Install & Test Frontend
+      run: |
+        cd frontend-ui
+        npm ci
+        npm test
+
+  build-and-push-images:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build Frontend
+      run: |
+        cd frontend-ui
+        npm ci
+        npm run build
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Azure Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.ACR_LOGIN_SERVER }}
+        username: ${{ env.ACR_NAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+        
+    - name: Build & Push Frontend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend-ui
+        push: true
+        tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:latest,${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ github.sha }}
+        cache-from: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:buildcache
+        cache-to: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:buildcache,mode=max
+
+    - name: Build & Push Backend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend-server
+        push: true
+        tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:latest,${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ github.sha }}
+        cache-from: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:buildcache
+        cache-to: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:buildcache,mode=max
+
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy Azure Resources with Bicep
+      id: deploy_bicep
+      run: |
+        # Create resource group if it doesn't exist
+        az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }}
+        
+        # Deploy using Bicep
+        BICEP_OUTPUT=$(az deployment group create \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --template-file main.bicep \
+          --parameters acrName=${{ env.ACR_NAME }} \
+                       planName=${{ env.PLAN_NAME }} \
+                       frontendAppName=${{ env.FRONTEND_APP }} \
+                       backendAppName=${{ env.BACKEND_APP }} \
+                       postgresName=${{ env.POSTGRES_SERVER }} \
+                       keyVaultName=${{ env.KEYVAULT_NAME }} \
+                       customDomain=${{ env.CUSTOM_DOMAIN }} \
+          --output json)
+          
+        # Save outputs for later steps
+        echo "::set-output name=acrLoginServer::$(echo $BICEP_OUTPUT | jq -r '.properties.outputs.acrLoginServer.value')"
+        echo "::set-output name=frontendUrl::$(echo $BICEP_OUTPUT | jq -r '.properties.outputs.frontendUrl.value')"
+        echo "::set-output name=backendUrl::$(echo $BICEP_OUTPUT | jq -r '.properties.outputs.backendUrl.value')"
+        echo "::set-output name=frontendStagingUrl::$(echo $BICEP_OUTPUT | jq -r '.properties.outputs.frontendStagingUrl.value')"
+        echo "::set-output name=backendStagingUrl::$(echo $BICEP_OUTPUT | jq -r '.properties.outputs.backendStagingUrl.value')"
+
+  deploy-to-staging:
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Staging Slots
+      run: |
+        # Deploy to Backend Staging
+        az webapp config container set \
+          --name ${{ env.BACKEND_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --slot staging \
+          --docker-custom-image-name ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ github.sha }} \
+          --docker-registry-server-url https://${{ env.ACR_LOGIN_SERVER }} \
+          --docker-registry-server-user ${{ env.ACR_NAME }} \
+          --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
+        
+        # Deploy to Frontend Staging
+        az webapp config container set \
+          --name ${{ env.FRONTEND_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --slot staging \
+          --docker-custom-image-name ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ github.sha }} \
+          --docker-registry-server-url https://${{ env.ACR_LOGIN_SERVER }} \
+          --docker-registry-server-user ${{ env.ACR_NAME }} \
+          --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
+          
+        # Wait for deployments to stabilize
+        sleep 60
+
+    - name: Run Integration Tests on Staging
+      run: |
+        echo "Running integration tests against staging environment"
+        # Verify that staging sites are responding
+        curl -sSf https://${{ env.FRONTEND_APP }}-staging.azurewebsites.net/health || exit 1
+        curl -sSf https://${{ env.BACKEND_APP }}-staging.azurewebsites.net/api/health || exit 1
+
+  swap-to-production:
+    runs-on: ubuntu-latest
+    needs: deploy-to-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production # This requires manual approval in GitHub
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Swap Staging to Production
+      run: |
+        # Swap Backend Staging to Production
+        az webapp deployment slot swap \
+          --name ${{ env.BACKEND_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --slot staging \
+          --target-slot production
+          
+        # Wait a moment for backend to stabilize
+        sleep 30
+        
+        # Swap Frontend Staging to Production
+        az webapp deployment slot swap \
+          --name ${{ env.FRONTEND_APP }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --slot staging \
+          --target-slot production
+          
+    - name: Verify Production Deployment
+      run: |
+        # Verify that the production sites are responding
+        curl -sSf https://${{ env.FRONTEND_APP }}.azurewebsites.net/health || exit 1
+        curl -sSf https://${{ env.BACKEND_APP }}.azurewebsites.net/api/health || exit 1
+        
+        echo "Deployment complete and verified!"

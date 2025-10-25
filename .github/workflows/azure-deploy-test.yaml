@@ -1,0 +1,153 @@
+name: Deploy to Test Environment
+
+on:
+  # push:
+  #   branches:
+  #     - main
+  #     - develop
+  #     - feature/test-*
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy to test environment'
+        required: true
+        default: 'main'
+        type: string
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'test'
+        type: choice
+        options:
+        - test
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Test Environment Configuration - using same Azure account
+  FRONTEND_APP: rehouzd-test-frontend
+  BACKEND_APP: rehouzd-test-backend
+  # Reuse same ACR and resource group as production
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }} 
+  RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+  # Azure region
+  LOCATION: southcentralus
+  KEYVAULT_NAME: rehouzd-kv  # Same Key Vault as production
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend_image_tag: ${{ steps.generate-tags.outputs.backend_tag }}
+      frontend_image_tag: ${{ steps.generate-tags.outputs.frontend_tag }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Generate unique tags for test deployment
+        id: generate-tags
+        run: |
+          # Use branch name and short commit SHA for test deployments
+          # For manual dispatch, use the input branch name; otherwise use the current branch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BRANCH_NAME="${{ github.event.inputs.branch }}"
+          else
+            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          fi
+          
+          SHORT_SHA=${GITHUB_SHA:0:8}
+          BACKEND_TAG="test-${BRANCH_NAME}-${SHORT_SHA}"
+          FRONTEND_TAG="test-${BRANCH_NAME}-${SHORT_SHA}"
+          
+          echo "backend_tag=${BACKEND_TAG}" >> $GITHUB_OUTPUT
+          echo "frontend_tag=${FRONTEND_TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tags: Backend=${BACKEND_TAG}, Frontend=${FRONTEND_TAG} (from branch: ${BRANCH_NAME})"
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          # Reuse same Azure credentials as production
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ env.ACR_NAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ steps.generate-tags.outputs.backend_tag }}
+          file: ./backend-server/Dockerfile
+          context: ./backend-server
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ steps.generate-tags.outputs.frontend_tag }}
+          file: ./frontend-ui/Dockerfile
+          context: ./frontend-ui
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Backend to Test Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          registryUrl: ${{ env.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ env.ACR_NAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          containerAppName: ${{ env.BACKEND_APP }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ needs.build-and-push.outputs.backend_image_tag }}
+          location: ${{ env.LOCATION }}
+          environmentVariables: |
+            NODE_ENV=test KEYVAULT_NAME=rehouzd-kv PORT=5004 HOST=0.0.0.0 FRONTEND_URL=https://rehouzd-test-frontend.purplegrass-ae735eac.southcentralus.azurecontainerapps.io
+      
+      - name: Deploy Frontend to Test Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          registryUrl: ${{ env.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ env.ACR_NAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          containerAppName: ${{ env.FRONTEND_APP }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ needs.build-and-push.outputs.frontend_image_tag }}
+          location: ${{ env.LOCATION }}
+          # Frontend environment variables - using test-specific secrets for Stripe
+          environmentVariables: |
+            REACT_APP_Maps_API_KEY=secretref:google-maps-api-key REACT_APP_GOOGLE_MAP_ID=secretref:google-maps-client-id REACT_APP_API_URL=https://rehouzd-test-backend.purplegrass-ae735eac.southcentralus.azurecontainerapps.io REACT_APP_STRIPE_PUBLISHABLE_KEY=secretref:test-stripe-publishable-key
+
+      - name: Health Check Test Environment
+        run: |
+          echo "Waiting for deployments to stabilize..."
+          sleep 30
+          
+          echo "Testing backend health..."
+          curl -sSf https://rehouzd-test-backend.purplegrass-ae735eac.southcentralus.azurecontainerapps.io/api/health || echo "Backend health check failed"
+          
+          echo "Testing frontend availability..."
+          curl -sSf https://rehouzd-test-frontend.purplegrass-ae735eac.southcentralus.azurecontainerapps.io/health || echo "Frontend health check failed"
+          
+          echo "Test deployment completed!"

@@ -1,0 +1,46 @@
+{
+  "Flooring": {
+    "Carpet (Bedrooms)": {
+      "1": "Basic Nylon/Polyester",
+      "2": "Upgraded Pad & Carpet",
+      "3": "Upgraded Pad & Carpet"
+    },
+    "LVP (Living Areas)": {
+      "1": "4-5mm Glue-Down/Click-Lock",
+      "2": "6-8mm w/Attached Pad",
+      "3": "High-End LVP/Engineered HW"
+    },
+    "Tile (Bathrooms)": {
+      "1": "Basic Ceramic (12x12)",
+      "2": "Modern Porcelain (12x24)",
+      "3": "Designer Look / Complex Pattern"
+    }
+  },
+  "Kitchen": {
+    "Partial Refresh": {
+      "1": "Paint existing cabinets, new hardware, new laminate countertops, basic faucet.",
+      "2": "Paint existing cabinets, new hardware, new entry-level granite/laminate, under-mount sink, new faucet.",
+      "3": "Paint existing cabinets, new hardware, new entry-level granite/laminate, under-mount sink, new faucet."
+    },
+    "Full Replacement": {
+      "1": "New builder-grade (RTA) cabinets, laminate countertops, basic stainless appliance package.",
+      "2": "New mid-grade Shaker cabinets, granite/quartz, standard stainless appliance package, basic tile backsplash.",
+      "3": "New semi-custom cabinets, higher-end quartz, upgraded appliance package, tile backsplash, under-cabinet lighting."
+    }
+  },
+  "Bathrooms": {
+    "Partial Refresh": {
+      "all": "New vanity top/faucet, new toilet, reglaze tub, new light/mirror, LVP flooring."
+    },
+    "Full Replacement": {
+      "1": "New builder-grade vanity, toilet, fiberglass tub/shower insert, basic fixtures, LVP floor.",
+      "2": "New mid-grade vanity w/stone top, toilet, new tub w/ basic tile surround, new upgraded fixtures.",
+      "3": "New larger/double vanity w/stone top, custom tile shower w/ glass door, tile floor, premium fixtures."
+    }
+  },
+  "Windows": {
+    "1": "Builder-grade vinyl, double-pane",
+    "2": "Higher quality vinyl, Low-E, Argon",
+    "3": "Higher quality vinyl, Low-E, Argon"
+  }
+} 

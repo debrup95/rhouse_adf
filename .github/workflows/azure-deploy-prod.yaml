@@ -1,0 +1,158 @@
+name: CI/CD to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Frontend App
+  FRONTEND_APP: rehouzd-frontend
+  FRONTEND_APP_VERSION: 0.4.74
+  # Backend App
+  BACKEND_APP: rehouzd-backend
+  BACKEND_APP_VERSION: 0.4.65
+  # These vars are stored in Github Environment variables
+  # Azure container registry details
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }} 
+  RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+  # Azure region
+  LOCATION: southcentralus
+  PLAN_NAME: rehouzd-plan
+  POSTGRES_SERVER: rehouzd-db
+  KEYVAULT_NAME: rehouzd-kv
+  CUSTOM_DOMAIN: rehouzd.com
+
+jobs:
+  build-and-push:
+    # This job builds the docker images and pushes them to the container registry
+    # Before building, it checks to ensure that the app version is new (does not exist already in ACR)
+    runs-on: ubuntu-latest
+
+    outputs:
+      # These outputs are used by the deploy job to selectively deploy only the app(s) that was updated.
+      backend_tag_exists: ${{ steps.backend-tag-check.outputs.backend_tag_exists }}
+      frontend_tag_exists: ${{ steps.frontend-tag-check.outputs.frontend_tag_exists }}
+      run_deploy_job: ${{ steps.check-deployment.outputs.needs_deployment }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          # These secrets are stored in Github repository secrets
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check if backend image tag already exists
+        id: backend-tag-check
+        run: |
+          if az acr repository show-tags \
+            --name ${{ env.ACR_NAME }} \
+            --repository ${{ env.BACKEND_APP }} \
+            --output tsv | grep -qx "${{ env.BACKEND_APP_VERSION }}"; then
+            echo "Image tag '${{ env.BACKEND_APP_VERSION }}' already exists in '${{ env.BACKEND_APP }}'"
+            echo "backend_tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Image tag '${{ env.BACKEND_APP_VERSION }}' does NOT exist in '${{ env.BACKEND_APP }}'"
+            echo "backend_tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Check if frontend image tag already exists
+        id: frontend-tag-check
+        run: |
+          if az acr repository show-tags \
+            --name ${{ env.ACR_NAME }} \
+            --repository ${{ env.FRONTEND_APP }} \
+            --output tsv | grep -qx "${{ env.FRONTEND_APP_VERSION }}"; then
+            echo "Image tag '${{ env.FRONTEND_APP_VERSION }}' already exists in '${{ env.FRONTEND_APP }}'"
+            echo "frontend_tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Image tag '${{ env.FRONTEND_APP_VERSION }}' does NOT exist in '${{ env.FRONTEND_APP }}'"
+            echo "frontend_tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ env.ACR_NAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Backend image
+        if: steps.backend-tag-check.outputs.backend_tag_exists == 'false'
+        id: build-push-backend
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ env.BACKEND_APP_VERSION }}
+          file: ./backend-server/Dockerfile
+          context: ./backend-server
+
+      - name: Build and push Frontend image
+        if: steps.frontend-tag-check.outputs.frontend_tag_exists == 'false'
+        id: build-push-frontend
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ env.FRONTEND_APP_VERSION }}
+          file: ./frontend-ui/Dockerfile
+          context: ./frontend-ui
+
+      - name: Determine if deployment is needed
+        id: check-deployment
+        run: |
+          if [[ "${{ steps.backend-tag-check.outputs.backend_tag_exists }}" == "false" || "${{ steps.frontend-tag-check.outputs.frontend_tag_exists }}" == "false" ]]; then
+            echo "needs_deployment=true" >> $GITHUB_OUTPUT
+            echo "New images detected - deployment needed"
+          else
+            echo "needs_deployment=false" >> $GITHUB_OUTPUT
+            echo "No new images - deployment can be skipped"
+          fi
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # Deploy job will only run if there was a new image created by previous job
+    if: needs.build-and-push.outputs.run_deploy_job == 'true'
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Backend to Container App
+        uses: azure/container-apps-deploy-action@v1
+        # Will only deploy if new backend app version exists
+        if: needs.build-and-push.outputs.backend_tag_exists == 'false'
+        with:
+          registryUrl: ${{ env.ACR_LOGIN_SERVER }}
+          containerAppName: ${{ env.BACKEND_APP }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_APP }}:${{ env.BACKEND_APP_VERSION }}
+          location: ${{ env.LOCATION }}
+          environmentVariables: |
+            NODE_ENV=production KEYVAULT_NAME=rehouzd-kv PORT=5004 HOST=0.0.0.0 FRONTEND_URL=https://www.rehouzd.com
+      
+      - name: Deploy Frontend to Container App
+        uses: azure/container-apps-deploy-action@v1
+        if: needs.build-and-push.outputs.frontend_tag_exists == 'false'
+        # Will only deploy if new frontend app version exists
+        with:
+          registryUrl: ${{ env.ACR_LOGIN_SERVER }}
+          containerAppName: ${{ env.FRONTEND_APP }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_APP }}:${{ env.FRONTEND_APP_VERSION }}
+          location: ${{ env.LOCATION }}
+          # These reference the "secrets" tab of the rehouzd-frontend container app
+          # They reference the key vault secrets, but these secret names and scope are specific to the rehouzd-frontend app
+          environmentVariables: |
+            REACT_APP_Maps_API_KEY=secretref:google-maps-api-key REACT_APP_GOOGLE_MAP_ID=secretref:google-maps-client-id REACT_APP_API_URL=https://rehouzd-backend.icyisland-0c350abe.southcentralus.azurecontainerapps.io REACT_APP_STRIPE_PUBLISHABLE_KEY=secretref:stripe-publishable-key
+
