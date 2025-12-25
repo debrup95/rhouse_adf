@@ -1,0 +1,9 @@
+{
+	"name": "rehouzd-df-v2",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "86319ca9-3bf8-4f1a-89cf-2c62ec475b9a",
+		"tenantId": "25c85834-43ef-4237-b0fc-013d98cec086"
+	}
+}
