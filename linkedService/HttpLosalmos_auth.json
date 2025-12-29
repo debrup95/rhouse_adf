@@ -4,7 +4,7 @@
 		"annotations": [],
 		"type": "HttpServer",
 		"typeProperties": {
-			"url": "https://csr.lanl.gov/data-fence/1750114758/N6ZxQkQ5wWcbJagx6A2cDPJyzL0=/cyber1/",
+			"url": "https://csr.lanl.gov/data-fence/1766676643/843Q7mzZiyME0s5UE6JRfhNpVeI=/cyber1/",
 			"enableServerCertificateValidation": true,
 			"authenticationType": "Anonymous"
 		}
